@@ -15,16 +15,221 @@ date: "`r Sys.Date()`"
 
 This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
-
-```{r}
-plot(cars)
-```
+Executing a chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
 
 When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file).
 
-# Single-cell Analysis
+# Preparation for analysis
+
+## Load libraries
+
+```{r load-libs}
+library(tidyverse)
+library(wesanderson)
+library(ggbeeswarm)
+library(pcaMethods)
+```
+
+## Load summarized data
+
+Load the summarized results in `../results/all.tsv.gz`.
+
+```{r load-data}
+df <- read_tsv("../results/archive/all.tsv.gz", col_types = cols())
+df <- mutate(df, sample = gsub(".tsv.gz", "", sample))
+```
+
+Add sample metadata defining cell type.
+
+```{r load-metadata}
+df_meta <- read_delim("../data/sample_metadata.txt", col_names = FALSE, delim = " ")
+colnames(df_meta) <- c("sample", "cell_type")
+```
+
+Add cell type information to methylation data frame.
+
+```{r add-cell-type}
+df <- left_join(df, df_meta)
+head(df)
+```
+
+# Clustering of cells by methylation profile
+
+We can take just the methylation rates for the active enhancer features and 
+use probabilistic PCA (which can handle missing values; highly relevant here) to
+view cells in a lower-dimensional space. Here we only use enhancers with less 
+than 50% missing values
+
+```{r gather-enhancers}
+mat_enhancers <- filter(df, anno == "active_enhancers") %>% 
+    select(sample, rate, id) %>% spread(key = id, value = rate)
+prop_na <- apply(mat_enhancers, 2, function(x) mean(is.na(x)))
+mat_enhancers <- mat_enhancers[, prop_na < 0.5]
+```
+
+```{r pca-enhancers}
+pca_enhancers <- pca(mat_enhancers, method = "ppca", scale = "uv")
+df_pca_enhancers <- merge(scores(pca_enhancers), df_meta, by = 0)
+ggplot(df_pca_enhancers, aes(PC1, PC2, shape = cell_type, color = cell_type)) +
+    geom_point(size = 3, alpha = 0.8) +
+    scale_color_manual(values = wes_palette("GrandBudapest")) + 
+    xlab(paste("PC1", round(pca_enhancers@R2[1] * 100), "% of variance")) +
+    ylab(paste("PC2", round(pca_enhancers@R2[2] * 100), "% of variance")) +
+    theme_classic()
+```
+
+Here, the first principal component separates the cells by cell type (E4.5 and 
+E6.5).
+
+**EXERCISE:** Repeat this with other classes of features. Do you see the same 
+results?
+```{r gather-CGI}
+mat_CGI <- filter(df, anno == "CGI") %>% 
+    select(sample, rate, id) %>% spread(key = id, value = rate)
+prop_na <- apply(mat_CGI, 2, function(x) mean(is.na(x)))
+mat_CGI <- mat_CGI[, prop_na < 0.5]
+```
+
+```{r pca-CGI}
+pca_CGI <- pca(mat_CGI, method = "ppca", scale = "uv")
+df_pca_CGI <- merge(scores(pca_CGI), df_meta, by = 0)
+ggplot(df_pca_CGI, aes(PC1, PC2, shape = cell_type, color = cell_type)) +
+    geom_point(size = 3, alpha = 0.8) +
+    scale_color_manual(values = wes_palette("GrandBudapest")) + 
+    xlab(paste("PC1", round(pca_CGI@R2[1] * 100), "% of variance")) +
+    ylab(paste("PC2", round(pca_CGI@R2[2] * 100), "% of variance")) +
+    theme_classic()
+```
+
+```{r gather-promoters}
+mat_promoters <- filter(df, anno == "promoters") %>% 
+    select(sample, rate, id) %>% spread(key = id, value = rate)
+prop_na <- apply(mat_promoters, 2, function(x) mean(is.na(x)))
+mat_promoters <- mat_promoters[, prop_na < 0.5]
+```
+
+```{r pca-promoters}
+pca_promoters <- pca(mat_promoters, method = "ppca", scale = "uv")
+df_pca_promoters <- merge(scores(pca_promoters), df_meta, by = 0)
+ggplot(df_pca_promoters, aes(PC1, PC2, shape = cell_type, color = cell_type)) +
+    geom_point(size = 3, alpha = 0.8) +
+    scale_color_manual(values = wes_palette("GrandBudapest")) + 
+    xlab(paste("PC1", round(pca_promoters@R2[1] * 100), "% of variance")) +
+    ylab(paste("PC2", round(pca_promoters@R2[2] * 100), "% of variance")) +
+    theme_classic()
+```
 
 
+
+
+# Context specificity of methylation
+
+## Mean and variance of methylation rate
+
+Functionality from the `dplyr` package makes it easy to compute the mean and 
+variance of the methylation rate across annotation categories.
+
+### Mean and variance of methylation rate across all cells
+
+```{r meanvar-rate}
+df_mean_var <- df %>% group_by(id, anno) %>% 
+    summarise(mean_methyl_rate = mean(rate), var_methyl_rate = var(rate),
+              sd_methyl_rate = sd(rate))
+```
+
+
+Plotting the distributions of mean methylation rate across genomic features 
+reveals that promoters and CpG islands are generally very lowly methylated, 
+whereas repetetive elements (IAP) are frequently highly methylated. Enhancer 
+regions commonly have moderate (25-50%) methylation.
+
+```{r plot-mean-rate}
+ggplot(df_mean_var, aes(x = anno, y = mean_methyl_rate, colour = anno)) +
+    geom_violin(scale = "width") +
+    geom_quasirandom(size = 0.5, alpha = 0.5) + 
+    scale_color_manual(values = wes_palette("Darjeeling")) + 
+    xlab("Genomic feature") + ylab("Mean methylation rate") +
+    ggtitle("Mean methylation rate by genomic feature") +
+    coord_flip() + theme_bw()
+```
+
+We can also examine the variance of methylation rate across classes of genomic 
+feature. Plotting the distributions of the standard deviation of methylation 
+rate by type of feature reveals that promoters and CpG islands typically have 
+low variance of methylation rate, whereas methylation rate genebody and active
+enhancers is highly variable. IAP elements have widely varying standard 
+deviations: some elements have very low variance in methylation rate, while 
+others have very high variance.
+
+```{r plot-var-rate}
+ggplot(df_mean_var, aes(x = anno, y = sd_methyl_rate, colour = anno)) +
+    geom_violin(scale = "width") +
+    geom_quasirandom(size = 0.5, alpha = 0.5) + 
+    scale_color_manual(values = wes_palette("Darjeeling")) + 
+    xlab("Genomic feature") + ylab("Standard deviation of methylation rate") +
+    ggtitle("Standard deviation of methylation rate by genomic feature") +
+    coord_flip() + theme_bw()
+```
+
+### Mean and variance of methylation rate by cell type
+
+```{r meanvar-rate-cell}
+df_mean_var_by_celltype <- df %>% group_by(id, anno, cell_type) %>% 
+    summarise(mean_methyl_rate = mean(rate), var_methyl_rate = var(rate),
+              sd_methyl_rate = sd(rate))
+```
+
+
+When we compute the mean methylation rate separately for the two cell types 
+(E4.5 and E6.5), we see stark differences in the distributions of mean 
+methylation rate across genomic features. Particularly, active enhancers go from
+almost completely unmethylated in E4.5 cells to highly methylated (most active
+enhancers greater than 50% methylated) in E6.5 cells. Similarly, gene bodies are 
+generally much more methylated in E6.5 cells than E4.5 cells.
+
+In both cell types CpG islands are generally very lowly methylated, 
+whereas repetetive elements (IAP) are consistently highly methylated in E6.5 
+cells, but show high variation in mean methylation rate in E4.5 cells. Promoters
+are generally lowly methylated, but show slightly more methylation in E6.5 cells.
+
+
+```{r plot-mean-rate-cell, fig.width=5}
+ggplot(df_mean_var_by_celltype, aes(x = anno, y = mean_methyl_rate, colour = anno)) +
+    geom_violin(scale = "width") +
+    geom_quasirandom(size = 0.5, alpha = 0.5) + 
+    facet_wrap(~cell_type, ncol = 2) +
+    scale_color_manual(values = wes_palette("Darjeeling")) + 
+    xlab("Genomic feature") + ylab("Mean methylation rate") +
+    ggtitle("Mean methylation rate for genomic features by cell type") +
+    coord_flip() + theme_bw()
+```
+
+Examination of the variance of methylation rate across classes of genomic 
+feature split by cell type shows similar patterns to the mean methylation rate.
+Genebody and active enhancer methylation variance is higher in E6.5 cells than
+E4.5 cells. IAP features are generally have less variable methylation in E6.5 
+cells; in E4.5 cells, IAP elements have widely varying standard 
+deviations: some elements have very low variance in methylation rate, while 
+others have very high variance. Promoters have slightly higher methylation 
+variance in E6.5 cells. In both cell types, CpG islands typically have very low
+variance of methylation rate. 
+
+```{r plot-var-rate-cell, fig.width=5}
+ggplot(df_mean_var_by_celltype, aes(x = anno, y = sd_methyl_rate, colour = anno)) +
+    geom_violin(scale = "width") +
+    geom_quasirandom(size = 0.5, alpha = 0.5) + 
+    facet_wrap(~cell_type, ncol = 2) +
+    scale_color_manual(values = wes_palette("Darjeeling")) + 
+    xlab("Genomic feature") + ylab("Standard deviation of methylation rate") +
+    ggtitle("Standard deviation of methylation rate by genomic feature") +
+    coord_flip() + theme_bw()
+```
+
+These analyses demonstrate the context specificity of methylation variance. In 
+mouse ES cells, CGIs are homogenous (and low in methylation), repeat elements 
+are homogenously high in E6.5 cells and active enhancer elements are
+heterogeneous. This is interesting because the enhancer elements are cell type
+specific and thus some variation in the methylation levels here implies 
+plasticity in cell identity which could be important for lineage formation.

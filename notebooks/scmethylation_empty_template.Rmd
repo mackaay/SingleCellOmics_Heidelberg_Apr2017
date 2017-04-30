@@ -1,0 +1,156 @@
+---
+title: "Single-cell methylation analysis notebook"
+output: 
+    html_notebook:
+        toc: true
+        toc_float: true
+        highlight: tango
+        number_sections: true
+        code_folding: hide
+author: "Davis McCarthy, EMBL-EBI"
+date: "`r Sys.Date()`"
+---
+
+# Introduction to notebooks
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Executing a chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file).
+
+# Preparation for analysis
+
+## Load libraries
+
+```{r load-libs}
+library(tidyverse)
+library(wesanderson)
+library(ggbeeswarm)
+library(pcaMethods)
+```
+
+## Load summarized data
+
+Load the summarized results in `../results/all.tsv.gz`.
+
+```{r load-data}
+df <- read_tsv("../results/all.tsv.gz", col_types = cols())
+df <- mutate(df, sample = gsub(".tsv.gz", "", sample))
+```
+
+Add sample metadata defining cell type.
+
+```{r load-metadata}
+df_meta <- read_delim("../data/sample_metadata.txt", col_names = FALSE, delim = " ")
+colnames(df_meta) <- c("sample", "cell_type")
+```
+
+Add cell type information to methylation data frame.
+
+```{r add-cell-type}
+
+```
+
+# Clustering of cells by methylation profile
+
+We can take just the methylation rates for the active enhancer features and 
+use probabilistic PCA (which can handle missing values; highly relevant here) to
+view cells in a lower-dimensional space. Here we only use enhancers with less 
+than 50% missing values
+
+```{r gather-enhancers}
+
+```
+
+```{r pca-enhancers}
+
+```
+
+Here, the first principal component separates the cells by cell type (E4.5 and 
+E6.5).
+
+**EXERCISE:** Repeat this with other classes of features. Do you see the same 
+results?
+
+# Context specificity of methylation
+
+## Mean and variance of methylation rate
+
+Functionality from the `dplyr` package makes it easy to compute the mean and 
+variance of the methylation rate across annotation categories.
+
+### Mean and variance of methylation rate across all cells
+
+```{r meanvar-rate}
+
+```
+
+
+Plotting the distributions of mean methylation rate across genomic features 
+reveals that promoters and CpG islands are generally very lowly methylated, 
+whereas repetetive elements (IAP) are frequently highly methylated. Enhancer 
+regions commonly have moderate (25-50%) methylation.
+
+```{r plot-mean-rate}
+
+```
+
+We can also examine the variance of methylation rate across classes of genomic 
+feature. Plotting the distributions of the standard deviation of methylation 
+rate by type of feature reveals that promoters and CpG islands typically have 
+low variance of methylation rate, whereas methylation rate genebody and active
+enhancers is highly variable. IAP elements have widely varying standard 
+deviations: some elements have very low variance in methylation rate, while 
+others have very high variance.
+
+```{r plot-var-rate}
+
+```
+
+### Mean and variance of methylation rate by cell type
+
+```{r meanvar-rate-cell}
+
+```
+
+
+When we compute the mean methylation rate separately for the two cell types 
+(E4.5 and E6.5), we see stark differences in the distributions of mean 
+methylation rate across genomic features. Particularly, active enhancers go from
+almost completely unmethylated in E4.5 cells to highly methylated (most active
+enhancers greater than 50% methylated) in E6.5 cells. Similarly, gene bodies are 
+generally much more methylated in E6.5 cells than E4.5 cells.
+
+In both cell types CpG islands are generally very lowly methylated, 
+whereas repetetive elements (IAP) are consistently highly methylated in E6.5 
+cells, but show high variation in mean methylation rate in E4.5 cells. Promoters
+are generally lowly methylated, but show slightly more methylation in E6.5 cells.
+
+
+```{r plot-mean-rate-cell, fig.width=5}
+
+```
+
+Examination of the variance of methylation rate across classes of genomic 
+feature split by cell type shows similar patterns to the mean methylation rate.
+Genebody and active enhancer methylation variance is higher in E6.5 cells than
+E4.5 cells. IAP features are generally have less variable methylation in E6.5 
+cells; in E4.5 cells, IAP elements have widely varying standard 
+deviations: some elements have very low variance in methylation rate, while 
+others have very high variance. Promoters have slightly higher methylation 
+variance in E6.5 cells. In both cell types, CpG islands typically have very low
+variance of methylation rate. 
+
+```{r plot-var-rate-cell, fig.width=5}
+
+```
+
+These analyses demonstrate the context specificity of methylation variance. In 
+mouse ES cells, CGIs are homogenous (and low in methylation), repeat elements 
+are homogenously high in E6.5 cells and active enhancer elements are
+heterogeneous. This is interesting because the enhancer elements are cell type
+specific and thus some variation in the methylation levels here implies 
+plasticity in cell identity which could be important for lineage formation.
