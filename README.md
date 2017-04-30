@@ -49,8 +49,16 @@ The aim will be for you to analyze the data you generate during the course in He
 However, in case that data is unavailable for any reason and to have an alternative dataset that is processed and ready for analysis, we also have access to a small dataset from Stephen Clark and colleagues at the Babraham Institute, Cambridge. This dataset consists of 15 cells from mouse embryos.
 
 1. Raw `fastq` files are available at this [link](https://www.dropbox.com/sh/1wy3gw7fpil73dd/AADIOGvbsYNdt45KnaHahmqqa?dl=0) (6GB; password required, which will be shared on the course Slack channel). Only if you want to work from raw `fastq` files (substantial computation needed) and have a high-bandwidth connection, download the files at the link and save to `data/fastq`.
-2. Merged `Bismark` files are available at this [link](https://www.dropbox.com/sh/b3v55pdkkimo13s/AAA4gH-6uCxMqFSbFM72rwLna?dl=0) (76MB; password required). Download and copy these to `data/bismark/merged`.
-3. Summarized, annotated methylation results that we will use for analysis are available in the results folder of this repository (we will generate these ourselves during the course).
+1. Raw `fastq` files for a "test" dataset (sampling 500,000 reads from each of
+the above `fastq` files), smaller in size so a little more convenient, are 
+available at this [link](https://www.dropbox.com/sh/s0dmlgg0cmxak9y/AAAC4NK_Bz2rSN7kYJfJcloRa?dl=0)
+(210MB; password required).
+1. Merged `Bismark` files are available at this [link](https://www.dropbox.com/sh/b3v55pdkkimo13s/AAA4gH-6uCxMqFSbFM72rwLna?dl=0) (76MB; password required). Download and copy these to `data/bismark/merged`.
+1. Summarized, annotated methylation results that we will use for analysis are
+available in the results folder of this repository (we will generate these 
+ourselves during the course). A version of this file, `results/all.tsv.gz` that
+has already been computed is available at this [link](https://www.dropbox.com/s/dq7x4ohu5zxw5n9/all.tsv.gz?dl=0) (3.5MB)
+in case you wish to use it for the second part of the analysis.
 
 
 ## Software requirements:
@@ -65,3 +73,11 @@ However, in case that data is unavailable for any reason and to have an alternat
 * [`FastQC`](http://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
 * [`MultiQC`](http://multiqc.info/)
 * [`MethylQA`](http://methylqa.sourceforge.net/index.php)
+
+
+## Acknowledgements
+
+Many thanks to Stephen Clark and Ricard Argeluet for help and advice. Stephen
+advised on the course aims and structure and directed generation of raw data. 
+Ricard provided advice on analysis and provided data processing scripts and 
+processed datasets for use.
